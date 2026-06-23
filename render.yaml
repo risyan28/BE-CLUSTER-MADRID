@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: cluster-madrid-api
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cluster-madrid-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: BANK_NAME
+        sync: false
+      - key: BANK_ACCOUNT
+        sync: false
+      - key: BANK_HOLDER
+        sync: false
+    healthCheckPath: /api/dashboard
+
+databases:
+  - name: cluster-madrid-db
+    plan: free
+    databaseName: cluster_madrid
