@@ -31,6 +31,66 @@ app.use('/api/laporan', require('./routes/laporan').default);
 app.use('/api/qris', require('./routes/qris').default);
 app.use('/api/bendahara', require('./routes/bendahara').default);
 
+app.get('/', (_req, res) => {
+  res.json({ status: 'ok', message: 'Cluster Madrid API running' });
+});
+
+app.get('/api/seed', async (_req, res) => {
+  try {
+    const bcrypt = require('bcryptjs');
+    const { Warga, Iuran, Tagihan, Kegiatan, Kehadiran, Kas, Pembayaran } = require('./models');
+
+    await Tagihan.destroy({ where: {} });
+    await Pembayaran.destroy({ where: {} });
+    await Kehadiran.destroy({ where: {} });
+    await Kas.destroy({ where: {} });
+    await Kegiatan.destroy({ where: {} });
+    await Iuran.destroy({ where: {} });
+    await Warga.destroy({ where: {} });
+
+    const admin = await Warga.create({
+      nama: 'ADMIN RT', email: 'admin@rt.com',
+      password_hash: await bcrypt.hash('admin123', 10), role: 'admin',
+    });
+
+    const warga = await Warga.create({
+      nama: 'BUDI SANTOSO', no_hp: '081234567892',
+      status: 'Dihuni', blok: 'A', nomor: '1', rt: '03', rw: '07', aktif: true,
+      alamat: 'Cluster Madrid Blok A No. 1',
+      password_hash: await bcrypt.hash('081234567892', 10), role: 'warga',
+    });
+
+    const iuran = await Iuran.create({
+      nama: 'IPKL', nominal: 150000, nominal_dihuni: 150000, nominal_belum_dihuni: 75000,
+      periode: 'bulanan', aktif: true,
+      keterangan: 'Iuran Pembangunan dan Kebersihan Lingkungan',
+    });
+
+    const now = new Date();
+    await Tagihan.create({
+      iuran_id: iuran.id, warga_id: warga.id,
+      bulan: now.getMonth() + 1, tahun: now.getFullYear(),
+      nominal: iuran.nominal, status: 'belum_lunas',
+    });
+
+    await Kegiatan.create({
+      judul: 'Kerja Bakti Bulanan',
+      tanggal: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
+      jam: '07:00', lokasi: 'Lapangan RT',
+      deskripsi: 'Kerja bakti bersih-bersih lingkungan RT.',
+      status: 'akan_datang', created_by: admin.id,
+    });
+
+    res.json({
+      message: 'Seed complete!',
+      admin: { email: 'admin@rt.com', password: 'admin123' },
+      warga: { nama: 'BUDI SANTOSO', password: '081234567892' },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 cron.schedule('0 0 1 * *', async () => {
   console.log('[CRON] Generate tagihan otomatis tanggal 1');
   try {
