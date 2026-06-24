@@ -17,6 +17,7 @@ Pembayaran.belongsTo(Tagihan, { foreignKey: 'tagihan_id', as: 'tagihan' });
 Tagihan.hasOne(Pembayaran, { foreignKey: 'tagihan_id', as: 'pembayaran' });
 
 Pembayaran.belongsTo(Warga, { foreignKey: 'verified_by', as: 'verifikator' });
+Pembayaran.belongsTo(Warga, { foreignKey: 'uploaded_by', as: 'uploader' });
 
 Pembayaran.hasOne(Kas, { foreignKey: 'pembayaran_id', as: 'kas' });
 Kas.belongsTo(Pembayaran, { foreignKey: 'pembayaran_id', as: 'pembayaran' });

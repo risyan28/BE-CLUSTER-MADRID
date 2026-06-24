@@ -9,6 +9,7 @@ class Pembayaran extends Model {
   declare bukti_url: string | null;
   declare status: 'menunggu' | 'lunas' | 'ditolak';
   declare verified_by: number | null;
+  declare uploaded_by: number | null;
   declare keterangan: string | null;
   declare tgl_bayar: string;
 }
@@ -21,6 +22,7 @@ Pembayaran.init({
   bukti_url: { type: DataTypes.STRING(255) },
   status: { type: DataTypes.ENUM('menunggu', 'lunas', 'ditolak'), defaultValue: 'menunggu' },
   verified_by: { type: DataTypes.INTEGER, allowNull: true },
+  uploaded_by: { type: DataTypes.INTEGER, allowNull: true },
   keterangan: { type: DataTypes.TEXT },
   tgl_bayar: { type: DataTypes.DATEONLY, defaultValue: DataTypes.NOW },
 }, {

@@ -5,7 +5,7 @@ import Iuran from '../models/Iuran';
 import Warga from '../models/Warga';
 import Pembayaran from '../models/Pembayaran';
 import Kas from '../models/Kas';
-import { literal, Op } from 'sequelize';
+import { Op } from 'sequelize';
 
 export const getAll = async (req: AuthRequest, res: Response) => {
   const { warga_id, iuran_id, bulan_from, bulan_to, tahun, status, status_warga } = req.query;
@@ -20,10 +20,7 @@ export const getAll = async (req: AuthRequest, res: Response) => {
   if (tahun) where.tahun = parseInt(tahun as string);
   if (status === 'belum_lunas') {
     where.status = 'belum_lunas';
-    where[Op.and] = literal(`NOT EXISTS (SELECT 1 FROM pembayaran WHERE pembayaran.tagihan_id = tagihan.id AND pembayaran.status = 'menunggu')`);
-  } else if (status === 'menunggu') {
-    where[Op.and] = literal(`EXISTS (SELECT 1 FROM pembayaran WHERE pembayaran.tagihan_id = tagihan.id AND pembayaran.status = 'menunggu')`);
-  } else if (status) {
+  } else if (status && status !== 'menunggu') {
     where.status = status;
   }
   const wargaInclude: any = { model: Warga, as: 'warga' };
@@ -36,11 +33,19 @@ export const getAll = async (req: AuthRequest, res: Response) => {
     include: [
       { model: Iuran, as: 'iuran' },
       wargaInclude,
-      { model: Pembayaran, as: 'pembayaran', include: [{ model: Warga, as: 'verifikator', attributes: ['id', 'nama'] }] }
+      { model: Pembayaran, as: 'pembayaran', include: [
+        { model: Warga, as: 'verifikator', attributes: ['id', 'nama'] },
+        { model: Warga, as: 'uploader', attributes: ['id', 'nama'] }
+      ] }
     ],
     order: [['tahun', 'DESC'], ['bulan', 'DESC']]
   });
-  res.json(data);
+  const filtered = status === 'menunggu'
+    ? data.filter((item: any) => item.pembayaran?.status === 'menunggu')
+    : status === 'belum_lunas'
+      ? data.filter((item: any) => item.pembayaran?.status !== 'menunggu')
+      : data;
+  res.json(filtered);
 };
 
 export const getById = async (req: AuthRequest, res: Response) => {
@@ -61,7 +66,10 @@ export const getTagihanSaya = async (req: AuthRequest, res: Response) => {
     where: { warga_id, tahun },
     include: [
       { model: Iuran, as: 'iuran' },
-      { model: Pembayaran, as: 'pembayaran', include: [{ model: Warga, as: 'verifikator', attributes: ['id', 'nama'] }] }
+      { model: Pembayaran, as: 'pembayaran', include: [
+        { model: Warga, as: 'verifikator', attributes: ['id', 'nama'] },
+        { model: Warga, as: 'uploader', attributes: ['id', 'nama'] }
+      ] }
     ],
     order: [['bulan', 'ASC']]
   });

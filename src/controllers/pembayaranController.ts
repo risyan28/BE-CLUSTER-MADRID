@@ -24,7 +24,8 @@ export const getAll = async (req: AuthRequest, res: Response) => {
         { model: Iuran, as: 'iuran' },
         { model: Warga, as: 'warga' }
       ]},
-      { model: Warga, as: 'verifikator', attributes: ['id', 'nama'] }
+      { model: Warga, as: 'verifikator', attributes: ['id', 'nama'] },
+      { model: Warga, as: 'uploader', attributes: ['id', 'nama'] }
     ],
     order: [['createdAt', 'DESC']]
   });
@@ -73,7 +74,7 @@ export const uploadBukti = async (req: AuthRequest, res: Response) => {
     if (req.file) bukti_url = `/uploads/${req.file.filename}`;
     const pembayaran = await Pembayaran.create({
       tagihan_id, metode, nominal: tagihan.nominal,
-      bukti_url, status: 'menunggu'
+      bukti_url, status: 'menunggu', uploaded_by: req.user!.id
     });
     res.status(201).json(pembayaran);
   } catch (err: any) {
@@ -91,6 +92,7 @@ export const verifikasi = async (req: AuthRequest, res: Response) => {
     });
     if (!pembayaran) return res.status(404).json({ message: 'Pembayaran tidak ditemukan' });
     if (pembayaran.status !== 'menunggu') return res.status(400).json({ message: 'Pembayaran sudah diproses' });
+    if (pembayaran.uploaded_by === req.user!.id) return res.status(403).json({ message: 'Pembayaran harus diverifikasi oleh admin lain' });
     await pembayaran.update({ status: 'lunas', verified_by: req.user!.id });
     await (pembayaran as any).tagihan.update({ status: 'lunas' });
     const p = pembayaran as any;
@@ -110,6 +112,7 @@ export const tolak = async (req: AuthRequest, res: Response) => {
     const pembayaran = await Pembayaran.findByPk(req.params.id);
     if (!pembayaran) return res.status(404).json({ message: 'Pembayaran tidak ditemukan' });
     if (pembayaran.status !== 'menunggu') return res.status(400).json({ message: 'Pembayaran sudah diproses' });
+    if (pembayaran.uploaded_by === req.user!.id) return res.status(403).json({ message: 'Pembayaran harus diproses oleh admin lain' });
     await pembayaran.update({ status: 'ditolak', verified_by: req.user!.id, keterangan: req.body.alasan });
     res.json({ message: 'Pembayaran ditolak' });
   } catch (err: any) {
