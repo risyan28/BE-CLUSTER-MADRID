@@ -45,6 +45,56 @@ export const grafikIuran = async (req: AuthRequest, res: Response) => {
   res.json(bulanData);
 };
 
+export const matriksIuran = async (req: AuthRequest, res: Response) => {
+  const user = req.user!;
+  const tahunSekarang = new Date().getFullYear();
+  const bulanSekarang = new Date().getMonth() + 1;
+  const tahun = parseInt(req.query.tahun as string) || tahunSekarang;
+  const bulanNames = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+
+  const whereWarga: any = { aktif: true };
+  if (user.role === 'warga') whereWarga.id = user.id;
+
+  const wargaList = await Warga.findAll({
+    where: whereWarga,
+    attributes: ['id', 'nama', 'blok', 'nomor'],
+    order: [['blok', 'ASC'], [literal('CAST(nomor AS SIGNED)'), 'ASC']]
+  });
+
+  const tagihanAgg = await Tagihan.findAll({
+    where: { tahun },
+    attributes: [
+      'warga_id', 'bulan',
+      [fn('COUNT', col('id')), 'total'],
+      [fn('SUM', literal('CASE WHEN status = "lunas" THEN 1 ELSE 0 END')), 'lunas_count']
+    ],
+    group: ['warga_id', 'bulan'],
+    raw: true
+  });
+
+  const lookup: Record<string, string> = {};
+  for (const row of tagihanAgg as any[]) {
+    const total = parseInt(row.total) || 0;
+    const lunasCount = parseInt(row.lunas_count) || 0;
+    if (total === 0) continue;
+    const id = `${row.warga_id}_${row.bulan}_${tahun}`;
+    if (total === lunasCount) {
+      lookup[id] = 'lunas';
+    } else if (tahun < tahunSekarang || (tahun === tahunSekarang && row.bulan < bulanSekarang)) {
+      lookup[id] = 'nunggak';
+    } else {
+      lookup[id] = 'belum_lunas';
+    }
+  }
+
+  const bulanList: { bulan: number; label: string }[] = [];
+  for (let b = 1; b <= 12; b++) {
+    bulanList.push({ bulan: b, label: bulanNames[b - 1] });
+  }
+
+  res.json({ warga: wargaList, lookup, bulanList, bulanSekarang, tahun });
+};
+
 export const grafikKas = async (req: AuthRequest, res: Response) => {
   const tahun = (req.query.tahun as string) || String(new Date().getFullYear());
   const data = await Kas.findAll({
